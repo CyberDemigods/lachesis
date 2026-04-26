@@ -1,7 +1,10 @@
 /**
  * Aggregate scoring across audit sections. Each finding is mapped to one or
- * more categories; the category score is the average of contributing findings.
- * The overall score is a weighted average of the categories.
+ * more categories; the category score is the WEIGHTED average of contributing
+ * findings. The overall score is a weighted average of categories.
+ *
+ * Findings carry a `weight` field (default 1). Severity points: pass=1,
+ * warn=0.5, fail=0. Info findings are excluded from scoring.
  */
 
 import type {
@@ -11,10 +14,6 @@ import type {
   ScoreCategory,
 } from "./types";
 
-/**
- * Mapping from finding ID to categories. Multiple categories per finding are
- * allowed (e.g. a missing alt is both A11y and SEO).
- */
 const FINDING_CATEGORIES: Record<string, ScoreCategory[]> = {
   // Core SEO
   "missing-title": ["seo"],
@@ -35,6 +34,8 @@ const FINDING_CATEGORIES: Record<string, ScoreCategory[]> = {
   "heading-hierarchy": ["accessibility"],
   "alt-coverage": ["accessibility", "seo"],
   "html-lang": ["accessibility", "seo"],
+  "lang-content-mismatch": ["seo", "accessibility", "best-practices"],
+  "lang-content-match": ["seo", "accessibility"],
   viewport: ["accessibility", "best-practices"],
 
   // Best practices
@@ -45,11 +46,21 @@ const FINDING_CATEGORIES: Record<string, ScoreCategory[]> = {
   charset: ["best-practices"],
   "security-headers": ["best-practices"],
 
-  // PageSpeed
+  // PageSpeed (also handled by prefix fallback below)
   "psi-performance": ["performance"],
   "psi-accessibility": ["accessibility"],
   "psi-best-practices": ["best-practices"],
   "psi-seo": ["seo"],
+
+  // Image performance
+  "image-total-weight": ["performance"],
+  "image-avg-load": ["performance"],
+  "image-slowest": ["performance"],
+  "image-heaviest": ["performance"],
+  "image-lazy-loading": ["performance", "best-practices"],
+  "image-modern-formats": ["performance", "best-practices"],
+  "image-fetch-errors": ["performance", "best-practices"],
+  "image-fetch-failed": ["performance"],
 
   // Locale
   "pl-diacritics": ["locale", "best-practices"],
@@ -82,34 +93,37 @@ function severityToPoints(sev: AuditFinding["severity"]): number | null {
   }
 }
 
+function resolveCategories(f: AuditFinding): ScoreCategory[] {
+  const explicit = FINDING_CATEGORIES[f.id];
+  if (explicit) return explicit;
+  if (f.id.startsWith("psi-") || f.id.startsWith("crux-")) return ["performance"];
+  if (f.id.startsWith("image-")) return ["performance"];
+  if (f.id.startsWith("pl-")) return ["locale"];
+  return ["best-practices"];
+}
+
 export function computeCategories(sections: AuditSection[]): CategoryScore[] {
-  const buckets = new Map<ScoreCategory, { sum: number; count: number; ids: string[] }>();
+  const buckets = new Map<
+    ScoreCategory,
+    { weightedSum: number; totalWeight: number; ids: string[] }
+  >();
 
   for (const section of sections) {
     for (const f of section.findings) {
-      // PSI sub-audits like psi-largest-contentful-paint go to performance
-      const cats =
-        FINDING_CATEGORIES[f.id] ??
-        (f.id.startsWith("psi-")
-          ? (["performance"] as ScoreCategory[])
-          : f.id.startsWith("crux-")
-          ? (["performance"] as ScoreCategory[])
-          : (["best-practices"] as ScoreCategory[]));
-
       const points = severityToPoints(f.severity);
       if (points === null) continue;
-
-      for (const cat of cats) {
-        if (!buckets.has(cat)) buckets.set(cat, { sum: 0, count: 0, ids: [] });
+      const weight = f.weight ?? 1;
+      for (const cat of resolveCategories(f)) {
+        if (!buckets.has(cat))
+          buckets.set(cat, { weightedSum: 0, totalWeight: 0, ids: [] });
         const b = buckets.get(cat)!;
-        b.sum += points;
-        b.count += 1;
+        b.weightedSum += points * weight;
+        b.totalWeight += weight;
         b.ids.push(f.id);
       }
     }
   }
 
-  const result: CategoryScore[] = [];
   const allCategories: ScoreCategory[] = [
     "seo",
     "performance",
@@ -118,12 +132,13 @@ export function computeCategories(sections: AuditSection[]): CategoryScore[] {
     "content",
     "locale",
   ];
+  const result: CategoryScore[] = [];
   for (const cat of allCategories) {
     const b = buckets.get(cat);
-    if (!b || b.count === 0) continue;
+    if (!b || b.totalWeight === 0) continue;
     result.push({
       category: cat,
-      score: Math.round((b.sum / b.count) * 100),
+      score: Math.round((b.weightedSum / b.totalWeight) * 100),
       findingIds: b.ids,
     });
   }

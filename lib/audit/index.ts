@@ -7,6 +7,7 @@ import { runOnPageAudit } from "./on-page";
 import { runPageSpeedAudit } from "./pagespeed";
 import { runHeadlessAudit } from "./headless";
 import { runLocaleAudit } from "./locale";
+import { runImagePerfAudit } from "./image-perf";
 import { computeCategories, computeOverallScore } from "./scoring";
 import type { AuditSection, ScanReport, ScanRequestBody } from "./types";
 
@@ -14,10 +15,10 @@ export async function runScan(req: ScanRequestBody): Promise<ScanReport> {
   const start = performance.now();
   const url = req.url;
 
-  // On-page must run first because the locale module reuses its HTML.
+  // On-page must run first because the locale and image-perf modules reuse
+  // its HTML and final URL.
   const { section: onPageSection, page } = await runOnPageAudit(url);
 
-  // Run remaining modules in parallel.
   const pageSpeedPromise = req.skipPageSpeed
     ? Promise.resolve<AuditSection>({
         module: "pagespeed",
@@ -27,6 +28,7 @@ export async function runScan(req: ScanRequestBody): Promise<ScanReport> {
         error: "skipped",
       })
     : runPageSpeedAudit(url);
+
   const headlessPromise: Promise<{ section: AuditSection; screenshot?: string }> =
     req.skipHeadless
       ? Promise.resolve({
@@ -39,9 +41,21 @@ export async function runScan(req: ScanRequestBody): Promise<ScanReport> {
           },
         })
       : runHeadlessAudit(url);
-  const [pageSpeedSection, headlessResult] = await Promise.all([
+
+  const imagePerfPromise: Promise<AuditSection> = page
+    ? runImagePerfAudit(page.html, page.finalUrl)
+    : Promise.resolve<AuditSection>({
+        module: "image-perf",
+        score: null,
+        findings: [],
+        durationMs: 0,
+        error: "on-page module did not return HTML",
+      });
+
+  const [pageSpeedSection, headlessResult, imagePerfSection] = await Promise.all([
     pageSpeedPromise,
     headlessPromise,
+    imagePerfPromise,
   ]);
 
   const localeSection: AuditSection = page
@@ -57,6 +71,7 @@ export async function runScan(req: ScanRequestBody): Promise<ScanReport> {
   const sections = [
     onPageSection,
     pageSpeedSection,
+    imagePerfSection,
     headlessResult.section,
     localeSection,
   ];

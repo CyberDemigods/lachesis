@@ -1,22 +1,51 @@
 /**
  * On-page SEO audit. Server-side fetch of the URL's raw HTML, parsed with
  * cheerio. Doesn't execute JS — for SPAs use the headless module.
+ *
+ * Findings carry weights (Lighthouse-style):
+ *   5 = critical, 3 = major, 2 = medium, 1 = minor (default).
  */
 
 import * as cheerio from "cheerio";
 import type { AuditFinding, AuditSection } from "./types";
 
-const TITLE_MIN = 30;
-const TITLE_MAX = 65;
+const TITLE_GOOD_MIN = 30;
+const TITLE_GOOD_MAX = 65;
+const TITLE_TOO_SHORT = 25; // below this, hard fail — slogan, not a title
 const DESC_MIN = 70;
 const DESC_MAX = 160;
-const MIN_WORDS = 300;
+const WORDS_THIN = 100; // below this, fail
+const WORDS_OK = 300; // above this, pass
+
+const PL_DIACRITICS = /[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g;
+const PL_COMMON_WORDS = [
+  "jest", "oraz", "które", "moje", "moja", "tylko", "jeśli",
+  "dla", "przez", "naszych", "naszej", "naszego", "się",
+  "który", "która", "także", "również", "albo", "razem",
+];
 
 interface PageData {
   html: string;
   finalUrl: string;
   status: number;
   headers: Record<string, string>;
+}
+
+interface LanguageGuess {
+  isPolish: boolean;
+  diacriticCount: number;
+  polishWordHits: number;
+}
+
+function guessContentLanguage(text: string): LanguageGuess {
+  const diacriticCount = (text.match(PL_DIACRITICS) ?? []).length;
+  const lower = " " + text.toLowerCase().replace(/\s+/g, " ") + " ";
+  const polishWordHits = PL_COMMON_WORDS.reduce(
+    (n, w) => (lower.includes(" " + w + " ") ? n + 1 : n),
+    0
+  );
+  const isPolish = diacriticCount >= 5 || polishWordHits >= 3;
+  return { isPolish, diacriticCount, polishWordHits };
 }
 
 async function fetchPage(url: string): Promise<PageData> {
@@ -54,6 +83,7 @@ export async function runOnPageAudit(url: string): Promise<{
         id: "http-error",
         title: `Page returned HTTP ${page.status}`,
         severity: "fail",
+        weight: 5,
         value: page.status,
       });
     } else if (page.status >= 300) {
@@ -70,11 +100,12 @@ export async function runOnPageAudit(url: string): Promise<{
       findings.push({
         id: "no-https",
         title: "Page is served over plain HTTP",
-        description: "Search engines and browsers strongly prefer HTTPS. Migrate the site to TLS.",
+        description: "Search engines and browsers strongly prefer HTTPS.",
         severity: "fail",
+        weight: 5,
       });
     } else {
-      findings.push({ id: "https", title: "Served over HTTPS", severity: "pass" });
+      findings.push({ id: "https", title: "Served over HTTPS", severity: "pass", weight: 5 });
     }
 
     // --- <title> ---
@@ -84,16 +115,27 @@ export async function runOnPageAudit(url: string): Promise<{
         id: "missing-title",
         title: "Missing <title> tag",
         severity: "fail",
+        weight: 5,
       });
     } else {
       const len = title.length;
-      const sev: AuditFinding["severity"] =
-        len >= TITLE_MIN && len <= TITLE_MAX ? "pass" : "warn";
+      let sev: AuditFinding["severity"];
+      let descNote: string | undefined;
+      if (len < TITLE_TOO_SHORT) {
+        sev = "fail";
+        descNote = `Below ${TITLE_TOO_SHORT} chars — too short to communicate the page's purpose to search engines or users.`;
+      } else if (len >= TITLE_GOOD_MIN && len <= TITLE_GOOD_MAX) {
+        sev = "pass";
+      } else {
+        sev = "warn";
+        descNote = `Recommended ${TITLE_GOOD_MIN}–${TITLE_GOOD_MAX} chars.`;
+      }
       findings.push({
         id: "title-length",
         title: `Title length: ${len} chars`,
-        description: `Recommended ${TITLE_MIN}–${TITLE_MAX} chars.`,
+        description: descNote,
         severity: sev,
+        weight: 3,
         value: title,
       });
     }
@@ -105,6 +147,7 @@ export async function runOnPageAudit(url: string): Promise<{
         id: "missing-meta-description",
         title: "Missing meta description",
         severity: "fail",
+        weight: 3,
       });
     } else {
       const len = desc.length;
@@ -115,18 +158,44 @@ export async function runOnPageAudit(url: string): Promise<{
         title: `Meta description length: ${len} chars`,
         description: `Recommended ${DESC_MIN}–${DESC_MAX} chars.`,
         severity: sev,
+        weight: 2,
         value: desc,
       });
     }
 
-    // --- <html lang> ---
+    // --- <html lang> + content-language consistency ---
     const lang = $("html").attr("lang");
     findings.push({
       id: "html-lang",
       title: lang ? `Language declared: ${lang}` : "Missing <html lang> attribute",
       severity: lang ? "pass" : "warn",
+      weight: 3,
       value: lang ?? null,
     });
+
+    const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+    const langGuess = guessContentLanguage(bodyText);
+    if (lang && langGuess.isPolish && !lang.toLowerCase().startsWith("pl")) {
+      findings.push({
+        id: "lang-content-mismatch",
+        title: `<html lang="${lang}"> contradicts content (looks Polish)`,
+        description: `Found ${langGuess.diacriticCount} Polish diacritics and ${langGuess.polishWordHits} common Polish words in body, but lang attribute is "${lang}". This is a major SEO and accessibility issue — change to lang="pl".`,
+        severity: "fail",
+        weight: 4,
+        meta: {
+          declaredLang: lang,
+          diacritics: langGuess.diacriticCount,
+          polishWordHits: langGuess.polishWordHits,
+        },
+      });
+    } else if (lang && langGuess.isPolish && lang.toLowerCase().startsWith("pl")) {
+      findings.push({
+        id: "lang-content-match",
+        title: "Declared language matches content",
+        severity: "pass",
+        weight: 2,
+      });
+    }
 
     // --- Viewport ---
     const viewport = $('head meta[name="viewport"]').attr("content");
@@ -134,6 +203,7 @@ export async function runOnPageAudit(url: string): Promise<{
       id: "viewport",
       title: viewport ? "Viewport meta present" : "Missing viewport meta",
       severity: viewport ? "pass" : "fail",
+      weight: 3,
       value: viewport ?? null,
     });
 
@@ -145,6 +215,7 @@ export async function runOnPageAudit(url: string): Promise<{
       id: "charset",
       title: charset ? `Charset: ${charset}` : "Missing charset declaration",
       severity: charset ? "pass" : "warn",
+      weight: 1,
       value: charset ?? null,
     });
 
@@ -154,6 +225,7 @@ export async function runOnPageAudit(url: string): Promise<{
       id: "canonical",
       title: canonical ? "Canonical URL set" : "Missing canonical URL",
       severity: canonical ? "pass" : "warn",
+      weight: 2,
       value: canonical ?? null,
     });
 
@@ -165,6 +237,7 @@ export async function runOnPageAudit(url: string): Promise<{
         title: "Page is set to noindex",
         description: "Page will not appear in search results.",
         severity: "fail",
+        weight: 5,
         value: robots,
       });
     } else {
@@ -186,9 +259,10 @@ export async function runOnPageAudit(url: string): Promise<{
         h1Count === 1
           ? "Exactly one H1 (recommended)."
           : h1Count === 0
-          ? "Missing H1 tag."
+          ? "Missing H1 tag — major SEO and accessibility issue."
           : "Multiple H1 tags — best practice is exactly one.",
       severity: h1Count === 1 ? "pass" : h1Count === 0 ? "fail" : "warn",
+      weight: 3,
       value: h1Count,
       meta: { texts: h1Texts },
     });
@@ -215,6 +289,7 @@ export async function runOnPageAudit(url: string): Promise<{
       id: "open-graph",
       title: `Open Graph tags: ${ogCount}/3 core (title/description/image)`,
       severity: ogCount === 3 ? "pass" : ogCount > 0 ? "warn" : "fail",
+      weight: 2,
       meta: { ogTitle, ogDesc, ogImage },
     });
 
@@ -224,6 +299,7 @@ export async function runOnPageAudit(url: string): Promise<{
       id: "twitter-card",
       title: twitterCard ? `Twitter card: ${twitterCard}` : "No Twitter card meta",
       severity: twitterCard ? "pass" : "info",
+      weight: 1,
       value: twitterCard ?? null,
     });
 
@@ -240,41 +316,56 @@ export async function runOnPageAudit(url: string): Promise<{
       id: "json-ld",
       title: `Structured data (JSON-LD) blocks: ${jsonLdBlocks.length}`,
       severity: jsonLdBlocks.length > 0 ? "pass" : "warn",
+      weight: 2,
       value: jsonLdBlocks.length,
       meta: { blocks: jsonLdBlocks },
     });
 
-    // --- Images & alt text ---
+    // --- Images & alt text — weight scales with image count ---
     const images = $("img");
     const imagesWithAlt = images.filter((_, el) => {
       const a = $(el).attr("alt");
       return a !== undefined && a !== "";
     }).length;
     const imagesMissingAlt = images.length - imagesWithAlt;
+    // Few images = less informative signal (e.g. 3/3 perfect on a 3-image page is barely meaningful)
+    const altWeight = images.length === 0 ? 1 : images.length < 5 ? 1 : 2;
     findings.push({
       id: "alt-coverage",
       title: `Alt text coverage: ${imagesWithAlt}/${images.length} images`,
       description:
-        imagesMissingAlt > 0
+        images.length === 0
+          ? "No images on the page."
+          : imagesMissingAlt > 0
           ? `${imagesMissingAlt} <img> tags without alt attribute (or empty).`
           : "All images have alt text.",
       severity:
         images.length === 0 ? "info" : imagesMissingAlt === 0 ? "pass" : "warn",
+      weight: altWeight,
       value: imagesMissingAlt,
       meta: { total: images.length, withAlt: imagesWithAlt },
     });
 
-    // --- Word count ---
-    const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+    // --- Word count (gradient: thin / ok / good) ---
     const wordCount = bodyText ? bodyText.split(" ").length : 0;
+    let wcSev: AuditFinding["severity"];
+    let wcDesc: string;
+    if (wordCount < WORDS_THIN) {
+      wcSev = "fail";
+      wcDesc = `Below ${WORDS_THIN} words — page is essentially empty for crawlers.`;
+    } else if (wordCount < WORDS_OK) {
+      wcSev = "warn";
+      wcDesc = `Below the ${WORDS_OK}-word threshold often used as a thin-content marker.`;
+    } else {
+      wcSev = "pass";
+      wcDesc = `Above the ${WORDS_OK}-word threshold.`;
+    }
     findings.push({
       id: "word-count",
       title: `Word count: ${wordCount}`,
-      description:
-        wordCount < MIN_WORDS
-          ? `Below the ${MIN_WORDS}-word threshold often used as a thin-content marker.`
-          : undefined,
-      severity: wordCount >= MIN_WORDS ? "pass" : "warn",
+      description: wcDesc,
+      severity: wcSev,
+      weight: 2,
       value: wordCount,
     });
 
@@ -312,11 +403,12 @@ export async function runOnPageAudit(url: string): Promise<{
         id: "hreflang",
         title: `Hreflang variants declared: ${hreflang}`,
         severity: "pass",
+        weight: 1,
         value: hreflang,
       });
     }
 
-    // --- Server headers (security/perf hints) ---
+    // --- Server headers (info only — full audit in best-practices section future) ---
     const xfo = page.headers["x-frame-options"];
     const csp = page.headers["content-security-policy"];
     findings.push({
@@ -343,20 +435,18 @@ export async function runOnPageAudit(url: string): Promise<{
     };
   }
 
-  // Score: pass=1, info=1, warn=0.5, fail=0 — average × 100
+  // Weighted score: sum(severityPoints * weight) / sum(weight) * 100
   const scorable = findings.filter((f) => f.severity !== "info");
+  const totalWeight = scorable.reduce((s, f) => s + (f.weight ?? 1), 0);
+  const sumWeighted = scorable.reduce(
+    (s, f) =>
+      s +
+      (f.severity === "pass" ? 1 : f.severity === "warn" ? 0.5 : 0) *
+        (f.weight ?? 1),
+    0
+  );
   const score =
-    scorable.length === 0
-      ? 100
-      : Math.round(
-          (scorable.reduce(
-            (sum, f) =>
-              sum + (f.severity === "pass" ? 1 : f.severity === "warn" ? 0.5 : 0),
-            0
-          ) /
-            scorable.length) *
-            100
-        );
+    totalWeight === 0 ? 100 : Math.round((sumWeighted / totalWeight) * 100);
 
   return {
     section: {

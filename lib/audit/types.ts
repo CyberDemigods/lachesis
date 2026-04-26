@@ -18,6 +18,15 @@ export interface AuditFinding {
   description?: string;
   /** Severity bucket — affects scoring weight */
   severity: AuditSeverity;
+  /**
+   * Per-finding weight in scoring (Lighthouse-style).
+   * Defaults to 1 when omitted. Conventional tiers:
+   *   5 = critical (page can't rank, can't render, etc.)
+   *   3 = major (significant SEO/UX impact)
+   *   2 = medium (notable but not crippling)
+   *   1 = minor (nice-to-have)
+   */
+  weight?: number;
   /** Concrete value found on the page, when relevant */
   value?: string | number | null;
   /** Free-form metadata for renderer (e.g. context, code snippets) */
