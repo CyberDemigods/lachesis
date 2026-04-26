@@ -1,7 +1,26 @@
 {
   "name": "lachesis",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "license": "MIT",
+  "description": "Open-source web audit tool. Measures the thread of your site's destiny — SEO, performance, accessibility, locale.",
+  "homepage": "https://github.com/CyberDemigods/lachesis",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CyberDemigods/lachesis.git"
+  },
+  "author": "CyberDemigods <hello@cyberdemigods.com>",
+  "keywords": [
+    "seo",
+    "audit",
+    "lighthouse",
+    "pagespeed",
+    "accessibility",
+    "performance",
+    "web-vitals",
+    "rodo",
+    "gdpr"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,6 +28,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "cheerio": "^1.2.0",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4"

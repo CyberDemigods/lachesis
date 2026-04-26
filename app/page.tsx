@@ -1,65 +1,128 @@
-import Image from "next/image";
+import { ScanForm } from "./components/scan-form";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+    <div className="flex flex-1 flex-col">
+      <header className="border-b border-[var(--border)] px-6 py-5">
+        <div className="mx-auto flex max-w-5xl items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-warm)]">
+              <ThreadIcon className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <div className="font-semibold tracking-tight">Lachesis</div>
+              <div className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
+                Measure the thread
+              </div>
+            </div>
+          </div>
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            href="https://github.com/CyberDemigods/lachesis"
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener"
+            className="text-sm text-[var(--muted)] transition-colors hover:text-[var(--foreground)]"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            GitHub
+          </a>
+        </div>
+      </header>
+
+      <main className="flex flex-1 flex-col">
+        <section className="px-6 pt-16 pb-10">
+          <div className="mx-auto max-w-3xl text-center">
+            <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
+              Measure the thread of your{" "}
+              <span className="bg-gradient-to-r from-[var(--accent)] to-[var(--accent-warm)] bg-clip-text text-transparent">
+                site&apos;s destiny
+              </span>
+              .
+            </h1>
+            <p className="mx-auto mt-5 max-w-xl text-lg leading-7 text-[var(--muted)]">
+              Drop a URL. Lachesis scans on-page SEO, Core Web Vitals,
+              accessibility, and locale-specific best practices, then returns a
+              measured verdict.
+            </p>
+          </div>
+
+          <div className="mx-auto mt-10 max-w-2xl">
+            <ScanForm />
+          </div>
+        </section>
+
+        <section className="border-t border-[var(--border)] bg-[var(--surface)]/40 px-6 py-12">
+          <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <Capability
+              title="On-page SEO"
+              description="Title, meta, headings, canonical, Open Graph, JSON-LD, alt coverage, link analysis."
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+            <Capability
+              title="Performance"
+              description="Lighthouse scores and Core Web Vitals (LCP, INP, CLS) via Google PageSpeed Insights."
+            />
+            <Capability
+              title="Accessibility"
+              description="Heading hierarchy, lang, viewport, alt, plus axe-core scan when headless module is wired."
+            />
+            <Capability
+              title="Locale & Privacy"
+              description="Polish-specific heuristics: RODO mention, encoding correctness, business identifiers, hreflang."
+            />
+          </div>
+        </section>
       </main>
+
+      <footer className="border-t border-[var(--border)] px-6 py-5 text-center text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
+        Forged by{" "}
+        <a
+          href="https://cyberdemigods.com"
+          target="_blank"
+          rel="noopener"
+          className="text-[var(--accent)] hover:underline"
+        >
+          CyberDemigods
+        </a>
+        {" · "}
+        Open source on{" "}
+        <a
+          href="https://github.com/CyberDemigods/lachesis"
+          target="_blank"
+          rel="noopener"
+          className="text-[var(--accent)] hover:underline"
+        >
+          GitHub
+        </a>
+      </footer>
     </div>
+  );
+}
+
+function Capability({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5">
+      <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{description}</p>
+    </div>
+  );
+}
+
+function ThreadIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M3 12h2.5l2-7 4 14 2-10 1.5 5H21" />
+    </svg>
   );
 }
