@@ -28,8 +28,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@axe-core/playwright": "^4.11.2",
+    "axe-core": "^4.11.3",
     "cheerio": "^1.2.0",
     "next": "16.2.4",
+    "playwright": "^1.59.1",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

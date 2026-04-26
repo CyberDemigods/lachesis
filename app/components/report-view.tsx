@@ -27,6 +27,7 @@ export function ReportView({ report }: { report: ScanReport }) {
     <div className="space-y-6">
       <OverallScore report={report} />
       <CategoryGrid categories={report.categories} />
+      {report.screenshot && <Screenshot data={report.screenshot} />}
       <div className="space-y-4">
         {report.sections.map((s) => (
           <SectionCard key={s.module} section={s} />
@@ -44,6 +45,27 @@ export function ReportView({ report }: { report: ScanReport }) {
         </a>
       </div>
     </div>
+  );
+}
+
+function Screenshot({ data }: { data: string }) {
+  return (
+    <details
+      open
+      className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]"
+    >
+      <summary className="cursor-pointer p-4 text-xs uppercase tracking-[0.15em] text-[var(--muted)] hover:bg-[var(--surface-2)]">
+        Rendered screenshot
+      </summary>
+      <div className="border-t border-[var(--border)] bg-[var(--background)] p-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`data:image/jpeg;base64,${data}`}
+          alt="Rendered page screenshot"
+          className="w-full rounded border border-[var(--border)]"
+        />
+      </div>
+    </details>
   );
 }
 

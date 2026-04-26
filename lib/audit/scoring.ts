@@ -62,6 +62,22 @@ const FINDING_CATEGORIES: Record<string, ScoreCategory[]> = {
   "image-fetch-errors": ["performance", "best-practices"],
   "image-fetch-failed": ["performance"],
 
+  // Headless / real browser
+  "headless-lcp": ["performance"],
+  "headless-fcp": ["performance"],
+  "headless-cls": ["performance"],
+  "headless-load": ["performance"],
+  "layout-horizontal-overflow": ["best-practices", "accessibility"],
+  "layout-underfilled": ["best-practices"],
+  "layout-footer-position": ["best-practices"],
+  "layout-no-footer": ["best-practices", "accessibility"],
+  "layout-tiny-fonts": ["accessibility", "best-practices"],
+  "a11y-critical": ["accessibility"],
+  "a11y-serious": ["accessibility"],
+  "a11y-moderate": ["accessibility"],
+  "a11y-minor": ["accessibility"],
+  "a11y-passes": ["accessibility"],
+
   // Locale
   "pl-diacritics": ["locale", "best-practices"],
   "pl-rodo": ["locale", "best-practices"],
