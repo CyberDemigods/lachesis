@@ -31,6 +31,7 @@ export function ReportView({ report }: { report: ScanReport }) {
       <ReportActions report={report} />
       <OverallScore report={report} />
       <CategoryGrid categories={report.categories} />
+      <ActionPlan report={report} />
       {report.screenshot && <Screenshot data={report.screenshot} />}
       <div className="space-y-4">
         {report.sections.map((s) => (
@@ -193,6 +194,97 @@ function OverallScore({ report }: { report: ScanReport }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function buildActionPlan(report: ScanReport, limit = 8): AuditFinding[] {
+  const all = report.sections.flatMap((s) => s.findings);
+  const actionable = all.filter(
+    (f) => f.severity === "fail" || f.severity === "warn"
+  );
+  // Priority = severity tier (fail dominates warn) + weight tier-breaker.
+  const priority = (f: AuditFinding) => {
+    const sevScore = f.severity === "fail" ? 1000 : 100;
+    return sevScore + (f.weight ?? 1);
+  };
+  return actionable.sort((a, b) => priority(b) - priority(a)).slice(0, limit);
+}
+
+function ActionPlan({ report }: { report: ScanReport }) {
+  const items = buildActionPlan(report, 8);
+  if (items.length === 0) {
+    return (
+      <div className="lachesis-card rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">✓</span>
+          <div>
+            <div className="text-sm font-semibold">No action items</div>
+            <div className="text-xs text-[var(--muted)]">
+              No fail or warn findings on this page. The thread runs straight.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="lachesis-card lachesis-page-break rounded-xl border border-[var(--border)] bg-[var(--surface)] p-6">
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-base font-semibold tracking-tight">
+          Action plan
+        </h3>
+        <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">
+          Top {items.length} priorities — sorted by impact
+        </span>
+      </div>
+      <ol className="mt-4 space-y-3">
+        {items.map((f, i) => {
+          const remediation = getRemediation(f) ?? f.description;
+          return (
+            <li
+              key={f.id}
+              className="lachesis-card flex gap-3 rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-3"
+            >
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]/15 text-sm font-bold text-[var(--accent)]">
+                {i + 1}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] ${SEVERITY_BADGE[f.severity]}`}
+                  >
+                    {f.severity}
+                  </span>
+                  <span className="text-sm font-medium">{f.title}</span>
+                  {f.weight && f.weight >= 3 && (
+                    <span className="text-[10px] uppercase tracking-[0.15em] text-[var(--muted)]">
+                      · weight {f.weight}
+                    </span>
+                  )}
+                </div>
+                {remediation && (
+                  <div className="mt-2 text-xs leading-relaxed text-[var(--foreground)]">
+                    {parseRemediationSegments(remediation).map((s, j) =>
+                      s.kind === "code" ? (
+                        <code
+                          key={j}
+                          className="rounded bg-[var(--surface)] px-1 py-0.5 font-mono text-[11px]"
+                        >
+                          {s.value}
+                        </code>
+                      ) : (
+                        <span key={j}>{s.value}</span>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
