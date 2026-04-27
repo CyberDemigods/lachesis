@@ -34,16 +34,143 @@ export function CrawlReportView({ report }: { report: CrawlReportWithSource }) {
 
   return (
     <div className="space-y-6">
+      <CrawlPrintHeader report={report} />
       <CrawlActions report={report} />
       <CrawlOverall report={report} />
       <CrawlCategoryGrid report={report} />
-      <PagesTable pages={sortedPages} />
+      {/* Screen view: dense sortable table */}
+      <div className="print:hidden">
+        <PagesTable pages={sortedPages} />
+      </div>
+      {/* Print view: vertical stack of per-page cards (table is unreadable in PDF) */}
+      <div className="hidden print:block">
+        <PrintPageStack pages={sortedPages} />
+      </div>
       {report.errors.length > 0 && <ErrorsList errors={report.errors} />}
       <div className="text-center text-xs text-[var(--muted)]">
         Crawl completed in {(report.durationMs / 1000).toFixed(1)}s ·{" "}
         {report.pagesScanned}/{report.pagesAttempted} pages scanned
         {report.fastMode && " · fast mode (on-page + image-perf only)"}
       </div>
+      <CrawlPrintFooter report={report} />
+    </div>
+  );
+}
+
+function CrawlPrintHeader({ report }: { report: CrawlReportWithSource }) {
+  const scannedAt = new Date(report.scannedAt);
+  let host = report.rootUrl;
+  try {
+    host = new URL(report.rootUrl).hostname;
+  } catch {
+    /* keep raw */
+  }
+  return (
+    <div className="hidden print:block">
+      <div className="flex items-baseline justify-between border-b border-[var(--border)] pb-3">
+        <div>
+          <div className="text-2xl font-bold tracking-tight text-[var(--accent)]">
+            Lachesis
+          </div>
+          <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
+            Site-wide audit
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="font-mono text-xs text-[var(--muted)]">{host}</div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">
+            {scannedAt.toLocaleString()} · {report.pagesScanned} pages
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CrawlPrintFooter({ report }: { report: CrawlReportWithSource }) {
+  return (
+    <div className="hidden text-[10px] uppercase tracking-[0.18em] text-[var(--muted)] print:block">
+      <div className="border-t border-[var(--border)] pt-2 text-center">
+        Forged by{" "}
+        <a href="https://cyberdemigods.com">CyberDemigods</a> · Lachesis ·{" "}
+        Generated {new Date(report.scannedAt).toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+function PrintPageStack({ pages }: { pages: CrawlPageSummary[] }) {
+  const presentCats = CATEGORY_ORDER.filter((c) =>
+    pages.some((p) => p.categories.some((cat) => cat.category === c))
+  );
+  return (
+    <div className="space-y-3">
+      <div className="text-xs uppercase tracking-[0.15em] text-[var(--muted)]">
+        Per-page scores · sorted worst first
+      </div>
+      {pages.map((p) => (
+        <PrintPageCard key={p.url} page={p} presentCats={presentCats} />
+      ))}
+    </div>
+  );
+}
+
+function PrintPageCard({
+  page,
+  presentCats,
+}: {
+  page: CrawlPageSummary;
+  presentCats: ScoreCategory[];
+}) {
+  const path = (() => {
+    try {
+      return new URL(page.finalUrl ?? page.url).pathname || "/";
+    } catch {
+      return page.url;
+    }
+  })();
+  return (
+    <div className="lachesis-card rounded-md border border-[var(--border)] p-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <div className="font-mono text-sm font-medium">{path}</div>
+        <div
+          className={`text-xl font-bold tabular-nums ${tierColor(page.overallScore)}`}
+        >
+          {page.overallScore}
+        </div>
+      </div>
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] uppercase tracking-[0.1em] text-[var(--muted)]">
+        {presentCats.map((cat) => {
+          const c = page.categories.find((x) => x.category === cat);
+          if (!c) return null;
+          return (
+            <span key={cat}>
+              {CATEGORY_LABELS[cat]}:{" "}
+              <span className={`font-semibold ${tierColor(c.score)}`}>
+                {c.score}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+      {page.topIssues.length > 0 && (
+        <ul className="mt-2 space-y-0.5">
+          {page.topIssues.map((issue, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs">
+              <span
+                className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] ${
+                  issue.severity === "fail"
+                    ? "border border-[var(--fail)]/40 bg-[var(--fail)]/10 text-[var(--fail)]"
+                    : "border border-[var(--warn)]/40 bg-[var(--warn)]/10 text-[var(--warn)]"
+                }`}
+              >
+                {issue.severity}
+              </span>
+              <span>{issue.title}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
