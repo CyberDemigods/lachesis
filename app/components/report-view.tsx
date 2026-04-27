@@ -5,6 +5,7 @@ import type {
   ScanReport,
   ScoreCategory,
 } from "@/lib/audit/types";
+import { getRemediation, parseRemediationSegments } from "@/lib/audit/remediation";
 
 const CATEGORY_LABELS: Record<ScoreCategory, string> = {
   seo: "SEO",
@@ -279,6 +280,11 @@ function SectionCard({ section }: { section: AuditSection }) {
 }
 
 function FindingRow({ finding }: { finding: AuditFinding }) {
+  const remediation =
+    finding.severity === "fail" || finding.severity === "warn"
+      ? getRemediation(finding)
+      : undefined;
+
   return (
     <li className="rounded-md border border-[var(--border)] bg-[var(--surface-2)] p-3">
       <div className="flex items-start justify-between gap-3">
@@ -301,8 +307,34 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
               {finding.value}
             </div>
           )}
+          {remediation && <RemediationBlock text={remediation} />}
         </div>
       </div>
     </li>
+  );
+}
+
+function RemediationBlock({ text }: { text: string }) {
+  const segments = parseRemediationSegments(text);
+  return (
+    <div className="mt-2 rounded border-l-2 border-[var(--accent)] bg-[var(--accent)]/5 px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[var(--accent)]">
+        How to fix
+      </div>
+      <div className="mt-1 text-xs leading-relaxed text-[var(--foreground)]">
+        {segments.map((s, i) =>
+          s.kind === "code" ? (
+            <code
+              key={i}
+              className="rounded bg-[var(--surface)] px-1 py-0.5 font-mono text-[11px]"
+            >
+              {s.value}
+            </code>
+          ) : (
+            <span key={i}>{s.value}</span>
+          )
+        )}
+      </div>
+    </div>
   );
 }

@@ -1,5 +1,6 @@
 import type { ScoreCategory } from "@/lib/audit/types";
 import type { CrawlPageSummary, CrawlReport } from "@/lib/crawl/runner";
+import { getRemediation, parseRemediationSegments } from "@/lib/audit/remediation";
 
 const CATEGORY_LABELS: Record<ScoreCategory, string> = {
   seo: "SEO",
@@ -154,22 +155,56 @@ function PrintPageCard({
         })}
       </div>
       {page.topIssues.length > 0 && (
-        <ul className="mt-2 space-y-0.5">
-          {page.topIssues.map((issue, i) => (
-            <li key={i} className="flex items-start gap-2 text-xs">
-              <span
-                className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] ${
-                  issue.severity === "fail"
-                    ? "border border-[var(--fail)]/40 bg-[var(--fail)]/10 text-[var(--fail)]"
-                    : "border border-[var(--warn)]/40 bg-[var(--warn)]/10 text-[var(--warn)]"
-                }`}
-              >
-                {issue.severity}
-              </span>
-              <span>{issue.title}</span>
-            </li>
-          ))}
+        <ul className="mt-2 space-y-2">
+          {page.topIssues.map((issue, i) => {
+            const remediation = getRemediation({
+              id: issue.id,
+              title: issue.title,
+              severity: issue.severity as "fail" | "warn",
+              description: issue.description,
+            });
+            return (
+              <li key={i} className="text-xs">
+                <div className="flex items-start gap-2">
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] ${
+                      issue.severity === "fail"
+                        ? "border border-[var(--fail)]/40 bg-[var(--fail)]/10 text-[var(--fail)]"
+                        : "border border-[var(--warn)]/40 bg-[var(--warn)]/10 text-[var(--warn)]"
+                    }`}
+                  >
+                    {issue.severity}
+                  </span>
+                  <span>{issue.title}</span>
+                </div>
+                {remediation && <CompactRemediation text={remediation} />}
+              </li>
+            );
+          })}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function CompactRemediation({ text }: { text: string }) {
+  const segments = parseRemediationSegments(text);
+  return (
+    <div className="mt-1 ml-7 border-l-2 border-[var(--accent)]/60 pl-2 text-[11px] leading-relaxed text-[var(--muted)]">
+      <span className="text-[9px] font-semibold uppercase tracking-[0.15em] text-[var(--accent)]">
+        Fix:
+      </span>{" "}
+      {segments.map((s, i) =>
+        s.kind === "code" ? (
+          <code
+            key={i}
+            className="rounded bg-[var(--surface-2)] px-1 font-mono text-[10px] text-[var(--foreground)]"
+          >
+            {s.value}
+          </code>
+        ) : (
+          <span key={i}>{s.value}</span>
+        )
       )}
     </div>
   );
