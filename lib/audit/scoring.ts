@@ -85,15 +85,24 @@ const FINDING_CATEGORIES: Record<string, ScoreCategory[]> = {
   "pl-company-ids": ["locale"],
   "pl-hreflang": ["locale", "seo"],
   "locale-not-polish": ["locale"],
+
+  // Visual (LM Studio vision-language model)
+  "visual-composition": ["visual"],
+  "visual-hierarchy": ["visual"],
+  "visual-professionalism": ["visual"],
+  "visual-readability": ["visual", "accessibility"],
+  "visual-typography": ["visual"],
+  "visual-color": ["visual"],
 };
 
 const CATEGORY_WEIGHTS: Record<ScoreCategory, number> = {
-  seo: 0.3,
-  performance: 0.25,
-  accessibility: 0.2,
-  "best-practices": 0.15,
+  seo: 0.27,
+  performance: 0.22,
+  accessibility: 0.18,
+  "best-practices": 0.13,
   content: 0.05,
   locale: 0.05,
+  visual: 0.1,
 };
 
 function severityToPoints(sev: AuditFinding["severity"]): number | null {
@@ -115,6 +124,7 @@ function resolveCategories(f: AuditFinding): ScoreCategory[] {
   if (f.id.startsWith("psi-") || f.id.startsWith("crux-")) return ["performance"];
   if (f.id.startsWith("image-")) return ["performance"];
   if (f.id.startsWith("pl-")) return ["locale"];
+  if (f.id.startsWith("visual-")) return ["visual"];
   return ["best-practices"];
 }
 
@@ -147,6 +157,7 @@ export function computeCategories(sections: AuditSection[]): CategoryScore[] {
     "best-practices",
     "content",
     "locale",
+    "visual",
   ];
   const result: CategoryScore[] = [];
   for (const cat of allCategories) {

@@ -52,7 +52,8 @@ export type ScoreCategory =
   | "accessibility"
   | "best-practices"
   | "content"
-  | "locale";
+  | "locale"
+  | "visual";
 
 export interface CategoryScore {
   category: ScoreCategory;
@@ -80,6 +81,7 @@ export interface ScanRequestBody {
   /** Optional flags to skip slow modules */
   skipPageSpeed?: boolean;
   skipHeadless?: boolean;
+  skipVisual?: boolean;
   /** Locale hints (e.g. "pl") for locale-specific checks */
   locale?: string;
 }

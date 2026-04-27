@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { runScan } from "@/lib/audit";
 import type { ScanRequestBody } from "@/lib/audit/types";
 
-// Allow up to 60s for slow PageSpeed Insights calls.
-export const maxDuration = 60;
+// Allow up to 120s — PSI ~30s + headless ~5s + visual ~10s with margin.
+export const maxDuration = 120;
 export const runtime = "nodejs";
 
 function normalizeUrl(input: string): string | null {
@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
   const skipPageSpeed = request.nextUrl.searchParams.get("skipPageSpeed") === "1";
   const skipHeadless = request.nextUrl.searchParams.get("skipHeadless") === "1";
+  const skipVisual = request.nextUrl.searchParams.get("skipVisual") === "1";
 
   const normalized = url ? normalizeUrl(url) : null;
   if (!normalized) {
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
       url: normalized,
       skipPageSpeed,
       skipHeadless,
+      skipVisual,
     });
     return Response.json(report);
   } catch (err) {

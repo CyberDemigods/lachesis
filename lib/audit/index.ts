@@ -8,6 +8,7 @@ import { runPageSpeedAudit } from "./pagespeed";
 import { runHeadlessAudit } from "./headless";
 import { runLocaleAudit } from "./locale";
 import { runImagePerfAudit } from "./image-perf";
+import { runVisualAudit } from "./visual";
 import { computeCategories, computeOverallScore } from "./scoring";
 import type { AuditSection, ScanReport, ScanRequestBody } from "./types";
 
@@ -58,6 +59,18 @@ export async function runScan(req: ScanRequestBody): Promise<ScanReport> {
     imagePerfPromise,
   ]);
 
+  // Visual audit depends on the headless screenshot — must run sequentially
+  // after headless completes.
+  const visualSection: AuditSection = req.skipVisual
+    ? {
+        module: "visual",
+        score: null,
+        findings: [],
+        durationMs: 0,
+        error: "skipped",
+      }
+    : await runVisualAudit(headlessResult.screenshot);
+
   const localeSection: AuditSection = page
     ? runLocaleAudit(page.html)
     : {
@@ -73,6 +86,7 @@ export async function runScan(req: ScanRequestBody): Promise<ScanReport> {
     pageSpeedSection,
     imagePerfSection,
     headlessResult.section,
+    visualSection,
     localeSection,
   ];
   const categories = computeCategories(sections);

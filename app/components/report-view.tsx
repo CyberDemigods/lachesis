@@ -13,6 +13,7 @@ const CATEGORY_LABELS: Record<ScoreCategory, string> = {
   "best-practices": "Best Practices",
   content: "Content",
   locale: "Locale",
+  visual: "Visual",
 };
 
 const SEVERITY_BADGE: Record<AuditFinding["severity"], string> = {
