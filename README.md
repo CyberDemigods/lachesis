@@ -19,18 +19,20 @@ Built by [CyberDemigods](https://cyberdemigods.com).
 - **TypeScript**
 - **Tailwind CSS 4**
 - **cheerio** for server-side HTML parsing
-- **Google PageSpeed Insights API** for Core Web Vitals + Lighthouse scores
-- *(planned)* **Playwright + axe-core** for SPA rendering and accessibility scans
-- *(planned)* **Vercel Functions** deployment
+- **Playwright + axe-core** for headless rendering, real Web Vitals, and accessibility scans
+- **Google PageSpeed Insights API** for Core Web Vitals + Lighthouse scores (optional)
+- **Local vision-language model** (LM Studio with Qwen3-VL or similar) for visual design evaluation
 
 ## What it audits
 
-| Module       | Status  | Checks                                                                                                                    |
-| ------------ | ------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `on-page`    | done    | Title, meta description, H1/headings, canonical, robots, Open Graph, Twitter Card, JSON-LD, alt coverage, links, hreflang |
-| `pagespeed`  | done    | Lighthouse scores (Performance, A11y, Best Practices, SEO) + Core Web Vitals (LCP, INP, CLS, TTFB, FCP) via Google PSI    |
-| `locale`     | done    | Polish: encoding correctness, RODO mention, cookie consent, NIP/REGON/KRS detection, hreflang variants                    |
-| `headless`   | stub    | Architecture for Playwright-based SPA render + screenshot + axe-core accessibility scan                                   |
+| Module       | Status | Checks                                                                                                                    |
+| ------------ | ------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `on-page`    | done   | Title, meta description, H1/headings, canonical, robots, OG, Twitter, JSON-LD, alt coverage, links, hreflang, lang/content language match |
+| `pagespeed`  | done   | Lighthouse scores (Performance, A11y, Best Practices, SEO) + Core Web Vitals (LCP, INP, CLS, TTFB, FCP) via Google PSI    |
+| `image-perf` | done   | Server-side fetch of image samples — total weight, average load time, slowest/heaviest, lazy-loading and modern-format coverage |
+| `headless`   | done   | Real Chromium render via Playwright — Web Vitals (LCP/FCP/CLS), layout signals (overflow, underfilled-page, footer position, tiny fonts), axe-core a11y full scan, screenshot |
+| `visual`     | done   | LM Studio vision-language model rates the screenshot across composition, hierarchy, professionalism, readability, typography, and color |
+| `locale`     | done   | Polish: encoding correctness, RODO mention, cookie consent, NIP/REGON/KRS detection, hreflang variants                    |
 
 The orchestrator runs modules in parallel where possible and aggregates findings
 into a weighted overall score across six categories: SEO, Performance,
@@ -89,9 +91,11 @@ overall score, per-category scores, and findings grouped by module.
 
 ### Environment
 
-| Variable            | Required | Purpose                                                              |
-| ------------------- | -------- | -------------------------------------------------------------------- |
-| `PAGESPEED_API_KEY` | optional | Google PageSpeed Insights key. Without it, requests are rate-limited. |
+| Variable            | Required | Purpose                                                                                  |
+| ------------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `PAGESPEED_API_KEY` | optional | Google PageSpeed Insights key. Without it, requests are rate-limited.                    |
+| `LM_STUDIO_URL`     | optional | Base URL of an OpenAI-compatible API (e.g. LM Studio). Default `http://192.168.0.38:1234`. |
+| `VISION_MODEL`      | optional | Identifier of an instruction-tuned vision-language model (e.g. `qwen3-vl-4b-instruct`).  |
 
 ## Scoring model
 
@@ -102,17 +106,26 @@ overall score is a weighted average of category scores:
 
 | Category        | Weight |
 | --------------- | ------ |
-| SEO             | 30%    |
-| Performance     | 25%    |
-| Accessibility   | 20%    |
-| Best Practices  | 15%    |
+| SEO             | 27%    |
+| Performance     | 22%    |
+| Accessibility   | 18%    |
+| Best Practices  | 13%    |
+| Visual          | 10%    |
 | Content         | 5%     |
 | Locale          | 5%     |
 
+Findings are also weighted (Lighthouse-style): critical = 5, major = 3, medium = 2, minor = 1 (default). Weight comes from the `weight` field on each `AuditFinding`.
+
 ## Roadmap
 
-- [ ] Wire up the `headless` module (Playwright + axe-core via Vercel Sandbox or external worker)
+- [x] On-page audit (cheerio)
+- [x] PageSpeed Insights integration
+- [x] Image performance module
+- [x] Locale-aware checks (Polish)
+- [x] Headless Playwright + axe-core
+- [x] Visual evaluation via local vision-language model
 - [ ] Side-by-side comparison mode — designed to integrate with [`web-transformation`](https://github.com/CyberDemigods/web-transformation)
+- [ ] Production deployment (Vercel Sandbox or external Playwright worker)
 - [ ] Persistent scan history (Postgres / SQLite)
 - [ ] PDF export of audit reports
 - [ ] More locales (DE, ES, FR — locale-specific privacy regulations and structured data)
