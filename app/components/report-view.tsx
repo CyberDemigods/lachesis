@@ -26,6 +26,8 @@ const SEVERITY_BADGE: Record<AuditFinding["severity"], string> = {
 export function ReportView({ report }: { report: ScanReport }) {
   return (
     <div className="space-y-6">
+      <PrintHeader report={report} />
+      <ReportActions report={report} />
       <OverallScore report={report} />
       <CategoryGrid categories={report.categories} />
       {report.screenshot && <Screenshot data={report.screenshot} />}
@@ -45,6 +47,94 @@ export function ReportView({ report }: { report: ScanReport }) {
           Raw JSON
         </a>
       </div>
+      <PrintFooter report={report} />
+    </div>
+  );
+}
+
+function ReportActions({ report }: { report: ScanReport }) {
+  function printReport() {
+    const oldTitle = document.title;
+    let host = report.url;
+    try {
+      host = new URL(report.finalUrl ?? report.url).hostname;
+    } catch {
+      // keep raw URL
+    }
+    const date = new Date(report.scannedAt).toISOString().slice(0, 10);
+    document.title = `Lachesis - ${host} - ${date}`;
+    window.print();
+    window.setTimeout(() => {
+      document.title = oldTitle;
+    }, 1000);
+  }
+
+  return (
+    <div className="flex justify-end gap-2 print:hidden">
+      <button
+        type="button"
+        onClick={printReport}
+        className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-2)]"
+      >
+        <PrinterIcon className="h-4 w-4" />
+        Print / Save as PDF
+      </button>
+    </div>
+  );
+}
+
+function PrinterIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" rx="1" />
+    </svg>
+  );
+}
+
+function PrintHeader({ report }: { report: ScanReport }) {
+  const scannedAt = new Date(report.scannedAt);
+  return (
+    <div className="hidden print:block">
+      <div className="flex items-baseline justify-between border-b border-[var(--border)] pb-3">
+        <div>
+          <div className="text-2xl font-bold tracking-tight text-[var(--accent)]">
+            Lachesis
+          </div>
+          <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">
+            Web audit report
+          </div>
+        </div>
+        <div className="text-right">
+          <div className="font-mono text-xs text-[var(--muted)]">
+            {report.finalUrl ?? report.url}
+          </div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-[var(--muted)]">
+            {scannedAt.toLocaleString()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PrintFooter({ report }: { report: ScanReport }) {
+  return (
+    <div className="hidden text-[10px] uppercase tracking-[0.18em] text-[var(--muted)] print:block">
+      <div className="border-t border-[var(--border)] pt-2 text-center">
+        Forged by{" "}
+        <a href="https://cyberdemigods.com">CyberDemigods</a> · Lachesis ·{" "}
+        Generated {new Date(report.scannedAt).toLocaleDateString()}
+      </div>
     </div>
   );
 }
@@ -53,7 +143,7 @@ function Screenshot({ data }: { data: string }) {
   return (
     <details
       open
-      className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]"
+      className="lachesis-section lachesis-page-break overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]"
     >
       <summary className="cursor-pointer p-4 text-xs uppercase tracking-[0.15em] text-[var(--muted)] hover:bg-[var(--surface-2)]">
         Rendered screenshot
@@ -83,7 +173,7 @@ function OverallScore({ report }: { report: ScanReport }) {
       : "text-[var(--fail)]";
 
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-8">
+    <div className="lachesis-card rounded-xl border border-[var(--border)] bg-[var(--surface)] p-8">
       <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-between">
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
@@ -113,7 +203,7 @@ function CategoryGrid({ categories }: { categories: CategoryScore[] }) {
       {categories.map((c) => (
         <div
           key={c.category}
-          className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4"
+          className="lachesis-card rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4"
         >
           <div className="text-xs uppercase tracking-[0.15em] text-[var(--muted)]">
             {CATEGORY_LABELS[c.category]}
@@ -150,7 +240,7 @@ function SectionCard({ section }: { section: AuditSection }) {
   return (
     <details
       open
-      className="group overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]"
+      className="lachesis-section group overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)]"
     >
       <summary className="flex cursor-pointer items-center justify-between p-4 hover:bg-[var(--surface-2)]">
         <div className="flex items-center gap-3">

@@ -37,7 +37,7 @@ export function ScanForm() {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={submit} className="space-y-3">
+      <form onSubmit={submit} className="space-y-3 print:hidden">
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="url"

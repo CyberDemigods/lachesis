@@ -35,3 +35,63 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, sans-serif;
 }
+
+@media print {
+  /* Switch to a light theme for printable / saved PDFs. */
+  :root {
+    --background: #ffffff;
+    --foreground: #1a1a1f;
+    --surface: #f7f7f9;
+    --surface-2: #efeff2;
+    --border: #d4d4dc;
+    --muted: #5a5a66;
+  }
+  @page {
+    margin: 1.4cm;
+  }
+  body {
+    background: #ffffff !important;
+    color: #1a1a1f !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  /* Force colored elements to keep their colors when printing. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Make the gradient brand text print as a solid colour instead of gradient. */
+  .bg-clip-text {
+    background: none !important;
+    -webkit-text-fill-color: #6e5cff !important;
+    color: #6e5cff !important;
+  }
+  /* Force <details> elements open during print, regardless of state. */
+  details {
+    display: block !important;
+  }
+  details > *:not(summary) {
+    display: block !important;
+  }
+  details summary {
+    cursor: default !important;
+    list-style: none !important;
+  }
+  details summary::-webkit-details-marker {
+    display: none !important;
+  }
+  /* Avoid awkward page breaks inside score cards. */
+  .lachesis-card,
+  .lachesis-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .lachesis-page-break {
+    page-break-before: always;
+    break-before: page;
+  }
+  a {
+    color: #6e5cff !important;
+    text-decoration: none !important;
+  }
+}

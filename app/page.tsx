@@ -3,7 +3,7 @@ import { ScanForm } from "./components/scan-form";
 export default function Home() {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b border-[var(--border)] px-6 py-5">
+      <header className="border-b border-[var(--border)] px-6 py-5 print:hidden">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-warm)]">
@@ -28,8 +28,8 @@ export default function Home() {
       </header>
 
       <main className="flex flex-1 flex-col">
-        <section className="px-6 pt-16 pb-10">
-          <div className="mx-auto max-w-3xl text-center">
+        <section className="px-6 pt-16 pb-10 print:px-0 print:pt-0 print:pb-0">
+          <div className="mx-auto max-w-3xl text-center print:hidden">
             <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
               Measure the thread of your{" "}
               <span className="bg-gradient-to-r from-[var(--accent)] to-[var(--accent-warm)] bg-clip-text text-transparent">
@@ -44,12 +44,12 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mx-auto mt-10 max-w-2xl">
+          <div className="mx-auto mt-10 max-w-2xl print:mt-0 print:max-w-none">
             <ScanForm />
           </div>
         </section>
 
-        <section className="border-t border-[var(--border)] bg-[var(--surface)]/40 px-6 py-12">
+        <section className="border-t border-[var(--border)] bg-[var(--surface)]/40 px-6 py-12 print:hidden">
           <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <Capability
               title="On-page SEO"
@@ -71,7 +71,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-[var(--border)] px-6 py-5 text-center text-[11px] uppercase tracking-[0.18em] text-[var(--muted)]">
+      <footer className="border-t border-[var(--border)] px-6 py-5 text-center text-[11px] uppercase tracking-[0.18em] text-[var(--muted)] print:hidden">
         Forged by{" "}
         <a
           href="https://cyberdemigods.com"
