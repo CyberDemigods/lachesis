@@ -79,13 +79,27 @@ export async function runOnPageAudit(url: string): Promise<{
 
     // --- HTTP status ---
     if (page.status >= 400) {
+      // Bail out — auditing a generic error page yields cascading false
+      // negatives (no title, no meta, no headings...). Surface the HTTP
+      // failure as a single finding and skip the rest.
       findings.push({
         id: "http-error",
         title: `Page returned HTTP ${page.status}`,
+        description:
+          "Server returned an error response. The audit was halted because parsing the error page would produce misleading findings.",
         severity: "fail",
         weight: 5,
         value: page.status,
       });
+      return {
+        section: {
+          module: "on-page",
+          score: 0,
+          findings,
+          durationMs: performance.now() - start,
+        },
+        page,
+      };
     } else if (page.status >= 300) {
       findings.push({
         id: "http-redirect",

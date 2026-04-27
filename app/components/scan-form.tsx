@@ -2,12 +2,25 @@
 
 import { useState, useTransition } from "react";
 import type { ScanReport } from "@/lib/audit/types";
+import type { CrawlReport } from "@/lib/crawl/runner";
 import { ReportView } from "./report-view";
+import { CrawlReportView } from "./crawl-report-view";
+
+type Mode = "single" | "crawl";
+
+type CrawlReportWithSource = CrawlReport & {
+  sitemapSource: string | null;
+  sitemapUrlsFound: number;
+  pagesAudited: number;
+};
 
 export function ScanForm() {
+  const [mode, setMode] = useState<Mode>("single");
   const [url, setUrl] = useState("");
   const [skipPageSpeed, setSkipPageSpeed] = useState(false);
-  const [report, setReport] = useState<ScanReport | null>(null);
+  const [maxPages, setMaxPages] = useState(20);
+  const [singleReport, setSingleReport] = useState<ScanReport | null>(null);
+  const [crawlReport, setCrawlReport] = useState<CrawlReportWithSource | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -15,20 +28,42 @@ export function ScanForm() {
     e.preventDefault();
     if (!url.trim()) return;
     setError(null);
-    setReport(null);
+    setSingleReport(null);
+    setCrawlReport(null);
+
     startTransition(async () => {
       try {
-        const res = await fetch("/api/scan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url, skipPageSpeed }),
-        });
-        const data = (await res.json()) as ScanReport | { error: string };
-        if (!res.ok || "error" in data) {
-          setError("error" in data ? data.error : "Scan failed");
-          return;
+        if (mode === "single") {
+          const res = await fetch("/api/scan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url, skipPageSpeed }),
+          });
+          const data = (await res.json()) as ScanReport | { error: string };
+          if (!res.ok || "error" in data) {
+            setError("error" in data ? data.error : "Scan failed");
+            return;
+          }
+          setSingleReport(data);
+        } else {
+          const res = await fetch("/api/crawl", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url, maxPages, fast: true }),
+          });
+          const data = (await res.json()) as
+            | CrawlReportWithSource
+            | { error: string; triedSources?: string[] };
+          if (!res.ok || "error" in data) {
+            const tried =
+              "triedSources" in data && data.triedSources
+                ? ` (tried: ${data.triedSources.slice(0, 3).join(", ")})`
+                : "";
+            setError(("error" in data ? data.error : "Crawl failed") + tried);
+            return;
+          }
+          setCrawlReport(data);
         }
-        setReport(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Network error");
       }
@@ -38,6 +73,31 @@ export function ScanForm() {
   return (
     <div className="space-y-6">
       <form onSubmit={submit} className="space-y-3 print:hidden">
+        <div className="flex w-full overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm">
+          <button
+            type="button"
+            onClick={() => setMode("single")}
+            className={`flex-1 px-4 py-2 transition-colors ${
+              mode === "single"
+                ? "bg-[var(--accent)] text-white"
+                : "text-[var(--muted)] hover:bg-[var(--surface-2)]"
+            }`}
+          >
+            Single page
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("crawl")}
+            className={`flex-1 px-4 py-2 transition-colors ${
+              mode === "crawl"
+                ? "bg-[var(--accent)] text-white"
+                : "text-[var(--muted)] hover:bg-[var(--surface-2)]"
+            }`}
+          >
+            Crawl site (sitemap)
+          </button>
+        </div>
+
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="url"
@@ -53,18 +113,47 @@ export function ScanForm() {
             disabled={isPending || !url.trim()}
             className="rounded-lg bg-[var(--accent)] px-6 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isPending ? "Measuring…" : "Measure"}
+            {isPending
+              ? mode === "single"
+                ? "Measuring…"
+                : "Crawling…"
+              : mode === "single"
+              ? "Measure"
+              : "Crawl"}
           </button>
         </div>
-        <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
-          <input
-            type="checkbox"
-            checked={skipPageSpeed}
-            onChange={(e) => setSkipPageSpeed(e.target.checked)}
-            className="accent-[var(--accent)]"
-          />
-          Skip PageSpeed Insights (faster, no Core Web Vitals)
-        </label>
+
+        {mode === "single" ? (
+          <label className="flex items-center gap-2 text-xs text-[var(--muted)]">
+            <input
+              type="checkbox"
+              checked={skipPageSpeed}
+              onChange={(e) => setSkipPageSpeed(e.target.checked)}
+              className="accent-[var(--accent)]"
+            />
+            Skip PageSpeed Insights (faster, no Core Web Vitals)
+          </label>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--muted)]">
+            <label className="flex items-center gap-2">
+              <span>Max pages:</span>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                value={maxPages}
+                onChange={(e) =>
+                  setMaxPages(Math.max(1, Math.min(50, Number(e.target.value) || 1)))
+                }
+                className="w-20 rounded border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-center font-mono text-[var(--foreground)]"
+                disabled={isPending}
+              />
+            </label>
+            <span className="text-[var(--muted)]">
+              Fast mode (on-page + image-perf only). Pulls URLs from sitemap.xml or robots.txt.
+            </span>
+          </div>
+        )}
       </form>
 
       {isPending && (
@@ -72,7 +161,9 @@ export function ScanForm() {
           <div className="flex items-center justify-center gap-3">
             <Spinner />
             <span>
-              Spinning the thread… PageSpeed Insights can take 20–40 seconds.
+              {mode === "single"
+                ? "Spinning the thread… PageSpeed Insights can take 20–40 seconds."
+                : `Crawling up to ${maxPages} pages. This can take 1-3 minutes.`}
             </span>
           </div>
         </div>
@@ -84,7 +175,8 @@ export function ScanForm() {
         </div>
       )}
 
-      {report && <ReportView report={report} />}
+      {singleReport && <ReportView report={singleReport} />}
+      {crawlReport && <CrawlReportView report={crawlReport} />}
     </div>
   );
 }
